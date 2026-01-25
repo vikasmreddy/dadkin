@@ -1,0 +1,20 @@
+{
+  "name": "dadkin",
+  "version": "0.1.0",
+  "description": "A 2D platformer where a pumpkin dad rescues his kids",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": ["game", "phaser", "platformer"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  },
+  "dependencies": {
+    "phaser": "^3.70.0"
+  }
+}
