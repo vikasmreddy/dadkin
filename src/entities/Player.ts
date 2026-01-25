@@ -10,6 +10,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private maxJumps: number = 2;
   private jumpKeyWasReleased: boolean = true;
   
+  // Spin animation
+  private isSpinning: boolean = false;
+  private spinTween: Phaser.Tweens.Tween | null = null;
+  
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'dadkin');
     
@@ -96,15 +100,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
   
   /**
-   * Handle jumping - supports double jump
+   * Handle jumping - supports double jump with spin
    */
   private handleJump(): void {
     const body = this.body as Phaser.Physics.Arcade.Body;
     const isOnGround = body.blocked.down || body.touching.down;
     
-    // Reset jump count when landing on ground
+    // Reset jump count and rotation when landing on ground
     if (isOnGround) {
       this.jumpCount = 0;
+      this.stopSpin();
     }
     
     // Check if jump key is pressed
@@ -117,6 +122,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         body.setVelocityY(PLAYER_CONFIG.jumpVelocity);
         this.jumpCount++;
         this.jumpKeyWasReleased = false;
+        
+        // Spin on double jump (second jump)
+        if (this.jumpCount === 2) {
+          this.startSpin();
+        }
       }
     }
     
@@ -124,6 +134,51 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (!jumpPressed) {
       this.jumpKeyWasReleased = true;
     }
+  }
+  
+  /**
+   * Start the spin animation for double jump
+   */
+  private startSpin(): void {
+    if (this.isSpinning) return;
+    
+    this.isSpinning = true;
+    
+    // Determine spin direction based on facing direction
+    const spinDirection = this.flipX ? -360 : 360;
+    
+    // Create spin tween - full 360 rotation
+    this.spinTween = this.scene.tweens.add({
+      targets: this,
+      angle: spinDirection,
+      duration: 400,  // Spin duration in ms
+      ease: 'Linear',
+      onComplete: () => {
+        // Keep spinning if still in air
+        if (!this.isOnGround() && this.isSpinning) {
+          this.angle = 0;
+          this.startSpin();
+        }
+      }
+    });
+  }
+  
+  /**
+   * Stop the spin animation and reset rotation
+   */
+  private stopSpin(): void {
+    if (!this.isSpinning) return;
+    
+    this.isSpinning = false;
+    
+    // Stop any active spin tween
+    if (this.spinTween) {
+      this.spinTween.stop();
+      this.spinTween = null;
+    }
+    
+    // Reset rotation
+    this.angle = 0;
   }
   
   /**
