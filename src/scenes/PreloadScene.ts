@@ -41,6 +41,6 @@ export class PreloadScene extends Phaser.Scene {
 
   create(): void {
     // Transition to game scene
-    this.scene.start('GameScene');
+    this.scene.start('EditorScene');
   }
 }
