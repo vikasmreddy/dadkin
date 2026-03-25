@@ -1,6 +1,6 @@
 # 004: Fix GitHub Pages Asset Loading
 
-**Status:** In Progress
+**Status:** Completed
 **Created:** 2026-03-25
 **Project:** dadkin
 
@@ -23,7 +23,7 @@ If the main image asset fails to load on GitHub Pages, the public version looks 
 
 ## Files Changed
 Expected scope:
-- `docs/plans/in-progress/004_fix-github-pages-asset-loading.md`
+- `docs/plans/completed/004_fix-github-pages-asset-loading.md`
 - `.github/workflows/deploy-pages.yml`
 - `src/scenes/PreloadScene.ts`
 
@@ -38,6 +38,7 @@ Expected scope:
 - **Decision:** Fix the deployment workflow by enabling LFS checkout so GitHub Pages builds with the real image asset.
 
 ## Progress
+- 2026-03-25: Enabled LFS checkout in the GitHub Pages workflow, redeployed the site, and verified the hosted `dadkin.png` is now served as a real PNG instead of a Git LFS pointer.
 - 2026-03-25: Confirmed the deployed `dadkin.png` URL returns Git LFS pointer text on GitHub Pages, which explains why Phaser fails to process it as an image.
 - 2026-03-25: Updated `PreloadScene` to load `dadkin.png` from `import.meta.env.BASE_URL` and confirmed the production build still succeeds.
 - 2026-03-25: Confirmed the build copies `public/assets/dadkin.png` into `dist/assets/`, so the likely issue is runtime URL resolution rather than a missing file in the build output.
