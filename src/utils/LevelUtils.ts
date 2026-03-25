@@ -22,7 +22,7 @@ export function createDefaultLevel(): LevelData {
   }
 
   // Player start near the left
-  cells.push({ col: 2, row: GRID_ROWS - 2, type: CellType.PlayerStart });
+  cells.push({ col: 2, row: GRID_ROWS - 6, type: CellType.PlayerStart });
 
   // Goal near the right
   cells.push({ col: GRID_COLS - 3, row: GRID_ROWS - 2, type: CellType.Goal });

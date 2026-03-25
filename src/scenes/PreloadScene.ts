@@ -33,8 +33,9 @@ export class PreloadScene extends Phaser.Scene {
       loadingText.setText('Complete!');
     });
 
-    // Load game assets
-    this.load.image('dadkin', 'assets/dadkin.png');
+    // Build the asset URL from Vite's base path so it works on GitHub Pages too.
+    const dadkinImageUrl = `${import.meta.env.BASE_URL}assets/dadkin.png`;
+    this.load.image('dadkin', dadkinImageUrl);
     
     // Placeholder assets will be created programmatically in GameScene
   }
