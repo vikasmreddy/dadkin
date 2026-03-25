@@ -18,7 +18,7 @@ export class PreloadScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Progress bar background
-    const progressBarBg = this.add.rectangle(width / 2, height / 2 + 10, 200, 20, 0x444444);
+    this.add.rectangle(width / 2, height / 2 + 10, 200, 20, 0x444444);
     
     // Progress bar fill
     const progressBar = this.add.rectangle(width / 2 - 98, height / 2 + 10, 0, 16, 0x88ff88);
