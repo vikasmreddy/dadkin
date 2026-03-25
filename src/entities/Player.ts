@@ -2,8 +2,13 @@ import Phaser from 'phaser';
 import { PLAYER_CONFIG } from '../config/game.config';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private spaceKey!: Phaser.Input.Keyboard.Key;
+  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
+  private spaceKey?: Phaser.Input.Keyboard.Key;
+  private touchInput = {
+    left: false,
+    right: false,
+    jump: false,
+  };
   
   // Double jump tracking
   private jumpCount: number = 0;
@@ -63,7 +68,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private setupInput(): void {
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) {
-      console.error('Keyboard input not available');
       return;
     }
     
@@ -78,24 +82,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.handleMovement();
     this.handleJump();
   }
+
+  setTouchInputState(nextState: Partial<typeof this.touchInput>): void {
+    this.touchInput = {
+      ...this.touchInput,
+      ...nextState,
+    };
+  }
   
   /**
    * Handle left/right movement
    */
   private handleMovement(): void {
     const body = this.body as Phaser.Physics.Arcade.Body;
-    
-    if (this.cursors.left.isDown) {
+    const moveLeft = this.touchInput.left || this.cursors?.left?.isDown || false;
+    const moveRight = this.touchInput.right || this.cursors?.right?.isDown || false;
+
+    if (moveLeft === moveRight) {
+      // Stop when both directions are pressed, or when neither is pressed.
+      body.setVelocityX(0);
+    } else if (moveLeft) {
       // Move left
       body.setVelocityX(-PLAYER_CONFIG.moveSpeed);
       this.setFlipX(true);
-    } else if (this.cursors.right.isDown) {
+    } else if (moveRight) {
       // Move right
       body.setVelocityX(PLAYER_CONFIG.moveSpeed);
       this.setFlipX(false);
-    } else {
-      // Slow down when no input (drag handles this, but we can also set directly)
-      body.setVelocityX(0);
     }
   }
   
@@ -113,7 +126,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
     
     // Check if jump key is pressed
-    const jumpPressed = this.spaceKey.isDown || this.cursors.up.isDown;
+    const jumpPressed = this.touchInput.jump || this.spaceKey?.isDown || this.cursors?.up?.isDown || false;
     
     // Only jump on key press (not hold) - prevents instant double jump
     if (jumpPressed && this.jumpKeyWasReleased) {

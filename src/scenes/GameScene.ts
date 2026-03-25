@@ -10,6 +10,7 @@ export class GameScene extends Phaser.Scene {
   private spikes!: Phaser.Physics.Arcade.StaticGroup;
   private springs!: Phaser.Physics.Arcade.StaticGroup;
   private goal!: Phaser.Physics.Arcade.StaticGroup;
+  private showTouchControls = false;
 
   private levelData!: LevelData;
   private fromEditor = false;
@@ -23,6 +24,7 @@ export class GameScene extends Phaser.Scene {
     this.levelData = data.level ?? createDefaultLevel();
     this.fromEditor = data.fromEditor ?? false;
     this.levelComplete = false;
+    this.showTouchControls = this.shouldShowTouchControls();
   }
 
   create(): void {
@@ -30,6 +32,7 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
     this.setupCollisions();
     this.createUI();
+    this.createTouchControls();
   }
 
   private createFromLevelData(): void {
@@ -159,12 +162,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createUI(): void {
-    // Controls help
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 8, 'Arrow keys to move, Space/Up to jump', {
+    const helpText = this.showTouchControls
+      ? 'Use the buttons to move and jump'
+      : 'Arrow keys to move, Space/Up to jump';
+    const helpY = this.showTouchControls ? 10 : GAME_HEIGHT - 8;
+
+    this.add.text(GAME_WIDTH / 2, helpY, helpText, {
       fontSize: '9px',
       color: '#aaaaaa',
       fontFamily: 'Arial',
-    }).setOrigin(0.5);
+    }).setOrigin(0.5, this.showTouchControls ? 0 : 0.5);
 
     // Edit button (only when launched from editor)
     if (this.fromEditor) {
@@ -180,6 +187,82 @@ export class GameScene extends Phaser.Scene {
         this.scene.start('EditorScene');
       });
     }
+  }
+
+  private createTouchControls(): void {
+    if (!this.showTouchControls) return;
+
+    const pointersNeeded = 3 - this.input.manager.pointersTotal;
+    if (pointersNeeded > 0) {
+      this.input.addPointer(pointersNeeded);
+    }
+
+    const buttonRadius = 22;
+    const buttonY = GAME_HEIGHT - 42;
+    const leftX = 42;
+    const rightX = 94;
+    const jumpX = GAME_WIDTH - 48;
+
+    const leftButton = this.createTouchButton(leftX, buttonY, buttonRadius, '<');
+    const rightButton = this.createTouchButton(rightX, buttonY, buttonRadius, '>');
+    const jumpButton = this.createTouchButton(jumpX, buttonY, 26, 'JUMP', 10);
+
+    this.bindTouchButton(leftButton, { left: true }, { left: false });
+    this.bindTouchButton(rightButton, { right: true }, { right: false });
+    this.bindTouchButton(jumpButton, { jump: true }, { jump: false });
+  }
+
+  private createTouchButton(
+    x: number,
+    y: number,
+    radius: number,
+    label: string,
+    fontSize = 18,
+  ): Phaser.GameObjects.Container {
+    const circle = this.add.circle(0, 0, radius, 0x111122, 0.55);
+    circle.setStrokeStyle(2, 0xffffff, 0.25);
+
+    const text = this.add.text(0, 0, label, {
+      fontSize: `${fontSize}px`,
+      color: '#ffffff',
+      fontFamily: 'Arial',
+    }).setOrigin(0.5);
+
+    const button = this.add.container(x, y, [circle, text]);
+    button.setSize(radius * 2, radius * 2);
+    button.setInteractive(
+      new Phaser.Geom.Circle(0, 0, radius),
+      Phaser.Geom.Circle.Contains,
+    );
+
+    return button;
+  }
+
+  private bindTouchButton(
+    button: Phaser.GameObjects.Container,
+    pressedState: Partial<{ left: boolean; right: boolean; jump: boolean }>,
+    releasedState: Partial<{ left: boolean; right: boolean; jump: boolean }>,
+  ): void {
+    button.on('pointerdown', () => {
+      this.player.setTouchInputState(pressedState);
+      button.setAlpha(0.85);
+    });
+
+    button.on('pointerup', () => {
+      this.player.setTouchInputState(releasedState);
+      button.setAlpha(1);
+    });
+
+    button.on('pointerout', () => {
+      this.player.setTouchInputState(releasedState);
+      button.setAlpha(1);
+    });
+  }
+
+  private shouldShowTouchControls(): boolean {
+    return this.sys.game.device.input.touch
+      || window.matchMedia('(pointer: coarse)').matches
+      || navigator.maxTouchPoints > 0;
   }
 
   update(): void {
