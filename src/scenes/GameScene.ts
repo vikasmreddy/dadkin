@@ -4,6 +4,16 @@ import { Player } from '../entities/Player';
 import { LevelData, CellType } from '../types/level.types';
 import { createDefaultLevel } from '../utils/LevelUtils';
 
+type TouchControlKey = 'left' | 'right' | 'jump';
+
+interface TouchControl {
+  key: TouchControlKey;
+  hitArea: Phaser.Geom.Circle;
+  background: Phaser.GameObjects.Arc;
+  label: Phaser.GameObjects.Text;
+  activePointerIds: Set<number>;
+}
+
 export class GameScene extends Phaser.Scene {
   private player!: Player;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
@@ -11,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   private springs!: Phaser.Physics.Arcade.StaticGroup;
   private goal!: Phaser.Physics.Arcade.StaticGroup;
   private showTouchControls = false;
+  private touchControls: TouchControl[] = [];
 
   private levelData!: LevelData;
   private fromEditor = false;
@@ -197,66 +208,129 @@ export class GameScene extends Phaser.Scene {
       this.input.addPointer(pointersNeeded);
     }
 
-    const buttonRadius = 22;
-    const buttonY = GAME_HEIGHT - 42;
-    const leftX = 42;
-    const rightX = 94;
-    const jumpX = GAME_WIDTH - 48;
+    const bottomMargin = 44;
+    const leftX = 50;
+    const rightX = 112;
+    const jumpX = GAME_WIDTH - 54;
+    const buttonY = GAME_HEIGHT - bottomMargin;
 
-    const leftButton = this.createTouchButton(leftX, buttonY, buttonRadius, '<');
-    const rightButton = this.createTouchButton(rightX, buttonY, buttonRadius, '>');
-    const jumpButton = this.createTouchButton(jumpX, buttonY, 26, 'JUMP', 10);
+    this.touchControls = [
+      this.createTouchButton('left', leftX, buttonY, 24, 34, '<'),
+      this.createTouchButton('right', rightX, buttonY, 24, 34, '>'),
+      this.createTouchButton('jump', jumpX, buttonY, 28, 40, 'JUMP', 10),
+    ];
 
-    this.bindTouchButton(leftButton, { left: true }, { left: false });
-    this.bindTouchButton(rightButton, { right: true }, { right: false });
-    this.bindTouchButton(jumpButton, { jump: true }, { jump: false });
+    this.input.on('pointerdown', this.handleTouchControlPointer, this);
+    this.input.on('pointermove', this.handleTouchControlPointer, this);
+    this.input.on('pointerup', this.releaseTouchPointer, this);
+    this.input.on('pointerupoutside', this.releaseTouchPointer, this);
+    this.input.on('gameout', this.resetTouchControls, this);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.off('pointerdown', this.handleTouchControlPointer, this);
+      this.input.off('pointermove', this.handleTouchControlPointer, this);
+      this.input.off('pointerup', this.releaseTouchPointer, this);
+      this.input.off('pointerupoutside', this.releaseTouchPointer, this);
+      this.input.off('gameout', this.resetTouchControls, this);
+      this.resetTouchControls();
+      this.touchControls = [];
+    });
   }
 
   private createTouchButton(
+    key: TouchControlKey,
     x: number,
     y: number,
-    radius: number,
+    visualRadius: number,
+    hitRadius: number,
     label: string,
     fontSize = 18,
-  ): Phaser.GameObjects.Container {
-    const circle = this.add.circle(0, 0, radius, 0x111122, 0.55);
-    circle.setStrokeStyle(2, 0xffffff, 0.25);
+  ): TouchControl {
+    const hudDepth = 1000;
+    const background = this.add.circle(x, y, visualRadius, 0x111122, 0.65);
+    background
+      .setStrokeStyle(2, 0xffffff, 0.35)
+      .setDepth(hudDepth)
+      .setScrollFactor(0);
 
-    const text = this.add.text(0, 0, label, {
+    const text = this.add.text(x, y, label, {
       fontSize: `${fontSize}px`,
       color: '#ffffff',
       fontFamily: 'Arial',
-    }).setOrigin(0.5);
+    })
+      .setOrigin(0.5)
+      .setDepth(hudDepth + 1)
+      .setScrollFactor(0);
 
-    const button = this.add.container(x, y, [circle, text]);
-    button.setSize(radius * 2, radius * 2);
-    button.setInteractive(
-      new Phaser.Geom.Circle(0, 0, radius),
-      Phaser.Geom.Circle.Contains,
-    );
-
-    return button;
+    return {
+      key,
+      hitArea: new Phaser.Geom.Circle(x, y, hitRadius),
+      background,
+      label: text,
+      activePointerIds: new Set<number>(),
+    };
   }
 
-  private bindTouchButton(
-    button: Phaser.GameObjects.Container,
-    pressedState: Partial<{ left: boolean; right: boolean; jump: boolean }>,
-    releasedState: Partial<{ left: boolean; right: boolean; jump: boolean }>,
-  ): void {
-    button.on('pointerdown', () => {
-      this.player.setTouchInputState(pressedState);
-      button.setAlpha(0.85);
-    });
+  private handleTouchControlPointer(pointer: Phaser.Input.Pointer): void {
+    if (!this.showTouchControls || this.levelComplete) return;
 
-    button.on('pointerup', () => {
-      this.player.setTouchInputState(releasedState);
-      button.setAlpha(1);
-    });
+    let didChange = false;
 
-    button.on('pointerout', () => {
-      this.player.setTouchInputState(releasedState);
-      button.setAlpha(1);
-    });
+    for (const control of this.touchControls) {
+      const isInside = Phaser.Geom.Circle.Contains(control.hitArea, pointer.x, pointer.y);
+      const wasActive = control.activePointerIds.has(pointer.id);
+
+      if (isInside && !wasActive) {
+        control.activePointerIds.add(pointer.id);
+        didChange = true;
+      } else if (!isInside && wasActive) {
+        control.activePointerIds.delete(pointer.id);
+        didChange = true;
+      }
+    }
+
+    if (didChange) {
+      this.refreshTouchControls();
+    }
+  }
+
+  private releaseTouchPointer(pointer: Phaser.Input.Pointer): void {
+    let didChange = false;
+
+    for (const control of this.touchControls) {
+      if (control.activePointerIds.delete(pointer.id)) {
+        didChange = true;
+      }
+    }
+
+    if (didChange) {
+      this.refreshTouchControls();
+    }
+  }
+
+  private resetTouchControls(): void {
+    for (const control of this.touchControls) {
+      control.activePointerIds.clear();
+    }
+
+    this.refreshTouchControls();
+  }
+
+  private refreshTouchControls(): void {
+    const nextState = {
+      left: false,
+      right: false,
+      jump: false,
+    };
+
+    for (const control of this.touchControls) {
+      const isPressed = control.activePointerIds.size > 0;
+      nextState[control.key] = isPressed;
+      control.background.setFillStyle(isPressed ? 0x3355aa : 0x111122, isPressed ? 0.9 : 0.65);
+      control.label.setAlpha(isPressed ? 1 : 0.92);
+    }
+
+    this.player.setTouchInputState(nextState);
   }
 
   private shouldShowTouchControls(): boolean {
